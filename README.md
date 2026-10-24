@@ -10,6 +10,14 @@ and **SteelSeries Arctis headsets** side by side, without Synapse or GG.
   *Start with Windows* and *Quit*. Left-click refreshes.
 - Devices are polled every 60 s (`battery-tray.exe --interval 30` to change it).
 
+## Download
+
+Grab the zip from [Releases](https://github.com/Q-efx/peripheral-battery-tray/releases):
+
+- **Versioned releases** (`v1.2.0`, …) are the stable builds.
+- **[latest](https://github.com/Q-efx/peripheral-battery-tray/releases/tag/latest)** is built
+  from `main` on every push and replaced each time.
+
 ## Files
 
 | File | What it is |
@@ -71,6 +79,20 @@ cargo build --release
 ```
 
 The executables end up in `target\release\`. Unit tests: `cargo test`.
+
+### Releasing
+
+`.github/workflows/release.yml` builds on Windows for every push and pull request.
+Pushes to `main` refresh the `latest` pre-release. To publish a version, bump
+`version` in `Cargo.toml`, commit, then tag and push:
+
+```
+git tag v0.2.0
+git push origin v0.2.0
+```
+
+The build fails if the tag doesn't match the `Cargo.toml` version. Tags with a
+suffix (`v0.2.0-rc1`) are published as pre-releases.
 
 `tools/gen_razer.py` regenerates `src/razer_devices.rs` from an OpenRazer checkout:
 `python tools/gen_razer.py path\to\openrazer src\razer_devices.rs`.
