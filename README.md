@@ -7,8 +7,12 @@ and **SteelSeries Arctis headsets** side by side, without Synapse or GG.
   coloured green (≥ 50 %), amber (20–49 %) or red (< 20 %). A yellow corner means
   charging. Grey means every device is asleep or off; it then shows the last value seen.
 - Hover for every device's level; right-click for the full list, *Refresh now*,
-  *Start with Windows* and *Quit*. Left-click refreshes.
+  *Start with Windows*, *Beep on low battery* and *Quit*. Left-click refreshes.
 - Devices are polled every 60 s (`battery-tray.exe --interval 30` to change it).
+- When a device that is on and not charging drops under 20 %, a very quiet beep plays
+  every 5 minutes. Under 10 % it is a little louder; under 5 % it plays every minute.
+  Turn it off with *Beep on low battery* (remembered across restarts). The beep follows
+  the system volume and shows up as *Battery Tray* in the Volume Mixer.
 
 ## Download
 
