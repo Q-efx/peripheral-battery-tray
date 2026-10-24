@@ -16,8 +16,14 @@ and **SteelSeries Arctis headsets** side by side, without Synapse or GG.
 
 ## Download
 
-Download the `.exe` files directly from [Releases](https://github.com/Q-efx/peripheral-battery-tray/releases)
-(`SHA256SUMS.txt` has their checksums):
+Download from [Releases](https://github.com/Q-efx/peripheral-battery-tray/releases)
+(`SHA256SUMS.txt` has the checksums):
+
+- **`battery-tray-setup.exe`** installs Battery Tray for your user (no admin rights needed)
+  with a Start menu entry and an optional *Start with Windows*. Uninstall it from *Apps*.
+- Or download `battery-tray.exe` and `battery-cli.exe` and run them from anywhere.
+
+Every release has both:
 
 - **Versioned releases** (`v1.2.0`, …) are the stable builds.
 - **[latest](https://github.com/Q-efx/peripheral-battery-tray/releases/tag/latest)** is built
@@ -29,6 +35,7 @@ Download the `.exe` files directly from [Releases](https://github.com/Q-efx/peri
 |---|---|
 | `battery-tray.exe` | The tray app (no console window). |
 | `battery-cli.exe`  | Console read-out for checking support and debugging. |
+| `battery-tray-setup.exe` | Installer for both, into `%LOCALAPPDATA%\Programs\Battery Tray`. |
 
 ```
 battery-cli.exe            one line per device
@@ -85,9 +92,19 @@ cargo build --release
 
 The executables end up in `target\release\`. Unit tests: `cargo test`.
 
+The installer is built with [Inno Setup 6](https://jrsoftware.org/isinfo.php) from
+`installer\battery-tray.iss`. After `cargo build --release`:
+
+```
+iscc installer\battery-tray.iss
+```
+
+The setup ends up in `target\installer\`.
+
 ### Releasing
 
-`.github/workflows/release.yml` builds on Windows for every push and pull request.
+`.github/workflows/release.yml` builds on Windows for every push and pull request,
+and calls `.github/workflows/installer.yml` to build the setup from those executables.
 Pushes to `main` refresh the `latest` pre-release. To publish a version, bump
 `version` in `Cargo.toml`, commit, then tag and push:
 

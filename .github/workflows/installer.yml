@@ -1,0 +1,43 @@
+# Builds battery-tray-setup.exe (Inno Setup) from the executables that
+# release.yml's build job uploaded. release.yml calls this workflow and attaches
+# the setup to the same releases as the plain executables.
+name: Installer
+
+on:
+  workflow_call:
+    inputs:
+      version:
+        description: Version shown by the installer and in Apps & Features
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    name: Build setup.exe
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: windows-x64
+          path: bin
+
+      # Inno Setup 6 is preinstalled on the windows-latest runner image.
+      - name: Build setup.exe
+        shell: pwsh
+        env:
+          APP_VERSION: ${{ inputs.version }}
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { throw "Inno Setup 6 not found at $iscc" }
+          & $iscc "/DAppVersion=$env:APP_VERSION" "/DBinDir=$PWD\bin" "/O$PWD\dist" installer\battery-tray.iss
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: windows-x64-setup
+          path: dist/battery-tray-setup.exe
+          if-no-files-found: error
