@@ -4,21 +4,23 @@
 //! icon and pumps Win32 messages (tray-icon needs a message loop on its thread).
 
 use std::sync::mpsc::{self, Receiver, RecvTimeoutError, Sender};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuItem, PredefinedMenuItem};
 use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIcon, TrayIconBuilder, TrayIconEvent};
 use windows_sys::Win32::Foundation::{GetLastError, ERROR_ALREADY_EXISTS};
+use windows_sys::Win32::Media::Audio::{PlaySoundW, SND_MEMORY, SND_NODEFAULT, SND_SYNC};
 use windows_sys::Win32::System::Threading::CreateMutexW;
 use windows_sys::Win32::UI::WindowsAndMessaging::{
     DispatchMessageW, MsgWaitForMultipleObjects, PeekMessageW, TranslateMessage, MSG, PM_REMOVE, QS_ALLINPUT,
     WM_QUIT,
 };
 
-use crate::autostart;
+use crate::alert::{self, Alert, Beeper};
 use crate::icon::{self, IconState};
 use crate::model::{DeviceStatus, Reading};
 use crate::scan::Scanner;
+use crate::{autostart, settings};
 
 type ScanResult = Result<Vec<DeviceStatus>, String>;
 
@@ -66,6 +68,15 @@ fn single_instance() -> bool {
     // The handle is intentionally leaked: it must live as long as the process.
     let handle = unsafe { CreateMutexW(std::ptr::null(), 0, name.as_ptr()) };
     !(handle.is_null() || unsafe { GetLastError() } == ERROR_ALREADY_EXISTS)
+}
+
+/// Plays a low-battery beep without blocking the message loop.
+fn beep(alert: Alert) {
+    let wav = alert::tone(alert.volume());
+    std::thread::spawn(move || {
+        // SND_MEMORY: the pointer is a WAV image, not a file name. Synchronous, so `wav` outlives playback.
+        unsafe { PlaySoundW(wav.as_ptr().cast(), std::ptr::null_mut(), SND_MEMORY | SND_NODEFAULT | SND_SYNC) };
+    });
 }
 
 fn make_icon(state: &IconState) -> Icon {
@@ -117,6 +128,8 @@ struct Ui {
     shown: Option<IconState>,
     /// "Refresh now" was clicked and its scan hasn't come back yet.
     refresh_pending: bool,
+    /// Low-battery alert from the latest scan.
+    alert: Option<Alert>,
 }
 
 impl Ui {
@@ -132,21 +145,23 @@ impl Ui {
         for item in self.device_items.drain(..) {
             let _ = self.menu.remove(&item);
         }
-        let (texts, tip, state) = match result {
+        let (texts, tip, state, alert) = match result {
             Ok(list) => {
                 let texts = if list.is_empty() {
                     vec!["No supported devices found".to_string()]
                 } else {
                     list.iter().map(|s| format!("{}  —  {}", s.name, s.describe())).collect()
                 };
-                (texts, tooltip(&list), icon_state(&list))
+                (texts, tooltip(&list), icon_state(&list), Alert::for_devices(&list))
             }
             Err(e) => (
                 vec![format!("Error: {e}")],
                 format!("Battery Tray: {e}"),
                 IconState { level: None, charging: false, live: true, unanswered: true },
+                None,
             ),
         };
+        self.alert = alert;
         for (i, t) in texts.iter().enumerate() {
             let item = MenuItem::new(t, false, None);
             let _ = self.menu.insert(&item, i);
@@ -179,12 +194,15 @@ pub fn run(interval: Duration) {
     let scanning = MenuItem::new("Scanning…", false, None);
     let refresh = MenuItem::new("Refresh now", true, None);
     let startup = CheckMenuItem::new("Start with Windows", true, autostart::is_enabled(), None);
+    let mut beeps_on = settings::beeps_enabled();
+    let beeps = CheckMenuItem::new("Beep on low battery", true, beeps_on, None);
     let quit = MenuItem::new("Quit", true, None);
     let _ = menu.append_items(&[
         &scanning,
         &PredefinedMenuItem::separator(),
         &refresh,
         &startup,
+        &beeps,
         &PredefinedMenuItem::separator(),
         &quit,
     ]);
@@ -198,7 +216,16 @@ pub fn run(interval: Duration) {
         .build()
         .expect("create tray icon");
 
-    let mut ui = Ui { tray, menu, device_items: vec![scanning], refresh, shown: Some(initial), refresh_pending: false };
+    let mut ui = Ui {
+        tray,
+        menu,
+        device_items: vec![scanning],
+        refresh,
+        shown: Some(initial),
+        refresh_pending: false,
+        alert: None,
+    };
+    let mut beeper = Beeper::default();
 
     let mut msg: MSG = unsafe { std::mem::zeroed() };
     'outer: loop {
@@ -225,6 +252,10 @@ pub fn run(interval: Duration) {
                 if autostart::set_enabled(want).is_err() {
                     startup.set_checked(!want);
                 }
+            } else if ev.id == *beeps.id() {
+                beeps_on = beeps.is_checked();
+                // Still applies for this session if it can't be saved.
+                let _ = settings::set_beeps_enabled(beeps_on);
             }
         }
 
@@ -236,6 +267,10 @@ pub fn run(interval: Duration) {
 
         while let Ok(update) = res_rx.try_recv() {
             ui.show(update);
+        }
+
+        if beeps_on && let Some(a) = beeper.due(ui.alert, Instant::now()) {
+            beep(a);
         }
     }
 }
