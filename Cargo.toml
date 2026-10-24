@@ -1,0 +1,27 @@
+[package]
+name = "battery-tray"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+hidapi = "2.6.7"
+
+[target."cfg(windows)".dependencies]
+tray-icon = "0.26.1"
+windows-sys = { version = "0.61.2", features = ["Win32_UI_WindowsAndMessaging", "Win32_System_Console", "Win32_Foundation", "Win32_System_Threading"] }
+winreg = "0.56.0"
+
+[[bin]]
+name = "battery-tray"
+path = "src/bin/battery-tray.rs"
+
+[[bin]]
+name = "battery-cli"
+path = "src/bin/battery-cli.rs"
+
+[profile.release]
+opt-level = "z"
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
