@@ -16,7 +16,8 @@ and **SteelSeries Arctis headsets** side by side, without Synapse or GG.
 
 ## Download
 
-Grab the zip from [Releases](https://github.com/Q-efx/peripheral-battery-tray/releases):
+Download the `.exe` files directly from [Releases](https://github.com/Q-efx/peripheral-battery-tray/releases)
+(`SHA256SUMS.txt` has their checksums):
 
 - **Versioned releases** (`v1.2.0`, …) are the stable builds.
 - **[latest](https://github.com/Q-efx/peripheral-battery-tray/releases/tag/latest)** is built

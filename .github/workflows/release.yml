@@ -55,15 +55,17 @@ jobs:
       - name: Build
         run: cargo build --release --locked
 
+      # The executables are released as-is (no zip) so they can be downloaded
+      # directly, with one checksum file covering both.
       - name: Package
         shell: pwsh
         run: |
-          $name = if ($env:GITHUB_REF_TYPE -eq 'tag') { "battery-tray-$($env:GITHUB_REF_NAME)-windows-x64" } else { 'battery-tray-windows-x64' }
-          $files = 'target/release/battery-tray.exe', 'target/release/battery-cli.exe', 'README.md'
           New-Item -ItemType Directory -Force dist | Out-Null
-          Compress-Archive -Path $files -DestinationPath "dist/$name.zip"
-          $hash = (Get-FileHash "dist/$name.zip" -Algorithm SHA256).Hash.ToLower()
-          [IO.File]::WriteAllText("$PWD/dist/$name.zip.sha256", "$hash  $name.zip`n")
+          Copy-Item target/release/battery-tray.exe, target/release/battery-cli.exe dist/
+          $sums = Get-ChildItem dist/*.exe | Sort-Object Name | ForEach-Object {
+            "$((Get-FileHash $_.FullName -Algorithm SHA256).Hash.ToLower())  $($_.Name)"
+          }
+          [IO.File]::WriteAllText("$PWD/dist/SHA256SUMS.txt", ($sums -join "`n") + "`n")
 
       - uses: actions/upload-artifact@v7
         with:
